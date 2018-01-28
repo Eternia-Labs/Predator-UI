@@ -1,0 +1,152 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Copyright</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="scripts/socket.io.js" type="text/javascript"></script>
+<script src="scripts/jquery.min.js" type="text/javascript"></script>
+<script src="scripts/lodash.min.js" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" href="styles/w3.css">
+</head>
+<body>
+<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:none;" id='D_E_IP'>
+	<div style="position:fixed;top:40%;left:0;width:100%;height:20%;" class='w3-blue'>
+		<div class='w3-display-middle'>
+			<input placeholder='IP' id='D_IP'></input>
+			<button id='D_S'>Connect</button>
+		</div>
+	</div>
+</div>
+
+<div class="w3-overlay w3-display-container" onclick="w3_close()" style="cursor:pointer;background:rgba(0,0,0,0.8);" id='_O'><div class='w3-display-middle w3-text-red' style='font-size:40px;'>Red Alert !</div></div>
+
+<div class="w3-container w3-half w3-padding-0 w3-border-black w3-leftbar">
+	<div class="w3-container w3-black w3-center"><h5>Robots in the system</h5></div>
+	<div id="_active_robots" class="w3-container" style="min-height:300px;">
+	</div>
+	<!-- <div class="w3-container w3-black w3-center"><h5>Selected robot</h5></div>-->
+	<div id="_selected_robot" class="w3-container" style="min-height:300px;display:none;">
+	</div>
+	<div class="w3-container w3-black w3-center"><h5>Captured image</h5></div>
+        <div id="imshow" class="w3-container" style="min-height:300px;">
+        </div>
+</div>
+
+<div class="w3-container w3-half w3-padding-0 w3-border-black w3-leftbar">
+	<div class="w3-container w3-black w3-center"><h5>Status of robots</h5></div>
+	<div class="w3-container" style="min-height:300px;" id='_status_robots'></div>
+	<div class="w3-container w3-black w3-center"><h5>Robot console</h5></div>
+	<div id="_robot_console" class="w3-container w3-black w3-text-white" style="min-height:300px;font-size:13px;overflow:hidden;max-height:350px;">
+        </div>
+</div>
+
+</body>
+<script type='text/javascript' src="scripts/r.js"></script>
+<script src="scripts/script.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+var _active_robots = $("#_active_robots");
+var _selected_robot = $("#_selected_robot");
+var _status_robots = $("#_status_robots");
+var _robot_console = $("#_robot_console");
+var _show_image = $("#_show_image");
+var _i_r = $("#_i_r");
+var _l_f = $("#_l_f");
+var _O = $("#_O");
+
+var cmd = '';
+var shown = 0;
+$(document).ready(function(){
+	$('body').keydown(function(e){
+	kc=e.keyCode;
+	cmd = "_robot_console.scrollTop(20000);";
+	eval(cmd);
+	//console.log($("#console")[0].scrollHeight);
+	if(kc==87){robots[active]._start_self();robots[active]._mode='forward';}  //w --> start and move forward
+	else if(kc==84){robots[active]._stop_self();robots[active]._mode='stop';}  //t --> stop
+	else if(kc==65){robots[active]._turn_left();robots[active]._mode='left';} //a --> turn left
+	else if(kc==68){robots[active]._turn_right();robots[active]._mode='right';} //d --> turn right
+	else if(kc==82){
+		//var robot = new robot('Robot', $('#D_IP').val());
+		//robot._connect_to_api();
+		shown ? ($("#D_E_IP").hide(), shown = 0) : ($('#D_E_IP').show(), shown = 1);
+	} //r --> connect to ip
+	else if(kc==38){robots[active]._val=Math.min(robots[active]._val+10,100);robots[active]._change_velocity(robots[active]._val);}
+	else if(kc==40){robots[active]._val=Math.max(robots[active]._val-10,0);robots[active]._change_velocity(robots[active]._val);}
+	else if(kc==80){
+		robots[active]._stop_self();robots[active]._mode='stop';
+		$.get(`http://${robots[active]._ip}:3000/image`, function(){
+			var imip = `http://${robots[active]._ip}:3000/shot.jpg`;
+			$("#imshow").html(`<img src='${imip}'/>`);
+		});
+	}
+});
+
+$("#D_S").click(function(){
+	var ip = $('#D_IP').val();
+	new robot('Robot', ip);
+	robots[active]._connect_to_api();
+});
+
+});
+function _on_show_image(r)
+{
+	if(!_.isEmpty(r.cat))
+	{
+		_sal.html("<p class='w3-red'>Loading ...</p>");
+		_show_image.html("<img src='"+r.url+"?t="+new Date().getTime()+"' style='width:100%'>");
+		var k = Object.keys(r.cat);
+		_i_r.html("<h3>Found objects:</h3><br>");
+		for (var i = 0; i<k.length; i++)
+		{
+			_i_r.append("<br><button class='w3-btn w3-teal' onclick=\"_m_s('"+k[i]+"','"+i+"')\">"+_.capitalize(k[i])+"</button><br>");
+		}
+		console.log(k);
+		var _o = _.split(r.url, "http://")[1];
+		var _o = _.split(_o, "/get_res")[0];
+		_sal.html("<img src='http://"+_o+"/sal?t="+new Date().getTime()+"' style='height:300px'>");
+	}
+	else
+	{
+		_i_r.html("No objects were identified in the scene.");
+	}
+}
+function _on_red_alert(d)
+{
+	_O.css("display",'block');
+	responsiveVoice.speak("Suspicious objects detected");
+	console.log(d);
+}
+function w3_close()
+{
+	_O.css('display','none');
+}
+function _m_s(nm,i) // mark suspicious
+{
+	if(document.getElementById('_l_f_'+nm) === null)
+	{
+		_l_f.append("<div id='_l_f_"+nm+"' class='w3-container w3-margin-top w3-padding w3-red'>"+_.capitalize(nm)+"<div class='w3-container w3-right w3-padding-0 w3-text-blue' onclick=\"_l_f_rem('"+nm+"')\">Remove</div></div>");
+		// make the object suspicious now. Broadcast across clients
+		_Broadcast('_make_susp',nm);
+	}
+	else
+	{
+		alert('Already on a lookout for '+nm);
+	}
+}
+function _l_f_rem(i)
+{
+	var element = document.getElementById('_l_f_'+i);
+	element.parentNode.removeChild(element);
+	_Broadcast('_umake_susp',i); // make normal or unsuspicious
+}
+function _Broadcast(ch,b)
+{
+	// iterate across all robots[] and emit on channel
+	for(var i = 0; i<r_names.length; i++)
+	{
+		// emit on certain channel about the intent
+		robots[r_names[i]]._api.emit(ch,b);
+	}
+}
+</script>
+</html>
